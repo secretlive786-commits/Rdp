@@ -1,4 +1,4 @@
-name: Normal-RDP-Setup
+name: Number-IP-RDP
 on: 
   workflow_dispatch:
 
@@ -6,37 +6,34 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-    - name: 1. Setup User & RDP
+    - name: 1. Setup Admin Password
       run: |
-        $user = "FaizLive"
-        # Password policy pass karne ke liye strong password
         $pass = "Faiz@1611#Live"
-        net user $user $pass /add
-        net localgroup administrators $user /add
+        $admin = [adsi]"WinNT://localhost/Administrator,user"
+        $admin.SetPassword($pass)
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        # Screen sleep off
-        powercfg /x -monitor-timeout-ac 0
 
     - name: 2. Install Tailscale & Connect
       run: |
         Invoke-WebRequest https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe -OutFile tailscale.exe
         Start-Process tailscale.exe -ArgumentList "/quiet" -Wait
-        # Yahan 'TAILSCALE_AUTH_KEY' secret se hi uthayega
         & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ secrets.TAILSCALE_AUTH_KEY }} --accept-routes --hostname FaizLivePC
 
-    - name: 3. Keep RDP Alive (6 Hours)
+    - name: 3. Show Number IP & Keep Alive
       run: |
+        # Tailscale ka Number wala IP nikalna
+        $ip = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
+        
+        Write-Host "****************************************************" -ForegroundColor Green
+        Write-Host "YOUR RDP IP (NUMBER): $ip" -ForegroundColor Yellow -BackgroundColor Red
+        Write-Host "USERNAME: Administrator" -ForegroundColor Cyan
+        Write-Host "PASSWORD: Faiz@1611#Live" -ForegroundColor Cyan
+        Write-Host "****************************************************" -ForegroundColor Green
+        
         $totalMinutes = 350
         $start = Get-Date
-        Write-Host "****************************************************"
-        Write-Host "CONNECT TO: FaizLivePC.tailbaaed9.ts.net" -ForegroundColor Yellow -BackgroundColor Red
-        Write-Host "Username: FaizLive | Password: Faiz@1611#Live"
-        Write-Host "****************************************************"
-        
         while (((Get-Date) - $start).TotalMinutes -lt $totalMinutes) {
-          $elapsed = [math]::Floor(((Get-Date) - $start).TotalMinutes)
-          Write-Output "RDP Session Running... $elapsed mins"
           Start-Sleep -Seconds 60
         }
         
